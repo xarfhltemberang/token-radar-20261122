@@ -277,7 +277,8 @@ export function multipleFor(p: SnapshotProtocol, multiples: Multiples, model: Mo
 }
 
 /** The maturity multiplier from a protocol's age: log growth, so a fourth tokenless year adds less
- * than the first, and the multiplier never passes 1.0. */
+ * than the first, and the multiplier never passes 1.0. A row with no listing date uses the
+ * snapshot's own median pre-token age, computed once in buildBoard, never a hardcoded guess. */
 export function maturityFor(age: number | null, fallbackAge: number | null, model: ModelConstants = MODEL): number {
   const days = age ?? fallbackAge ?? 365;
   const x = Math.log(1 + Math.max(0, days) / 365) / Math.log(model.maturity_years);
