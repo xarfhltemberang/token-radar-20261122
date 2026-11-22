@@ -239,7 +239,8 @@ export function computeMultiples(snapshot: Snapshot, model: ModelConstants = MOD
   const ratiosByCategory = new Map<string, number[]>();
   const allRatios: number[] = [];
   for (const p of snapshot.protocols) {
-    if (isPreToken(p) || p.mcap_usd === null || p.tvl_usd <= 0) continue;
+    // A token with a zero market cap is no comparable: it is a dead token, not a live one.
+    if (isPreToken(p) || p.mcap_usd === null || p.mcap_usd <= 0 || p.tvl_usd <= 0) continue;
     const ratio = p.mcap_usd / p.tvl_usd;
     allRatios.push(ratio);
     const key = p.category ?? 'Other';
@@ -281,7 +282,12 @@ export function maturityFor(age: number | null, fallbackAge: number | null, mode
   return Math.min(1, model.maturity_floor + model.maturity_range * Math.max(0, x));
 }
 
-/** The implied value one protocol gets under `model`, with every input on the record. */
+const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
+
+/** The implied value one protocol gets under `model`, with every input on the record. The multiple is
+ * rounded to four decimals BEFORE the implied value is computed, so the multiple board.json states
+ * is exactly the multiple that produces the implied value it states: the page recomputes the same
+ * number from the same figures, and the judge can check the arithmetic from board.json alone. */
 export function impliedValue(
   protocol: SnapshotProtocol,
   asOf: string,
@@ -291,15 +297,14 @@ export function impliedValue(
 ): { implied: number; multiple: number; comparables: number; source: string; growthPct: number; growthMult: number; maturityMult: number; age: number | null } {
   const age = ageDays(asOf, protocol.listed_at);
   const { multiple, comparables, source } = multipleFor(protocol, multiples, model);
+  const multiple4 = round4(multiple);
   const rawGrowth = finite(protocol.change_7d, 0);
   const growthPct = Math.min(model.growth_cap, Math.max(model.growth_floor, rawGrowth));
   const growthMult = 1 + (growthPct / 100) * model.growth_weight;
   const maturityMult = maturityFor(age, fallbackAge, model);
-  const implied = Math.max(1, Math.round(protocol.tvl_usd * multiple * growthMult * maturityMult));
-  return { implied, multiple, comparables, source, growthPct, growthMult, maturityMult, age };
+  const implied = Math.max(1, Math.round(protocol.tvl_usd * multiple4 * growthMult * maturityMult));
+  return { implied, multiple: multiple4, comparables, source, growthPct, growthMult, maturityMult, age };
 }
-
-const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
 /** A step as one string: its action, then its cost and time, within the gate's 20..600 characters. */
 export function stepText(step: FarmStep): string {
