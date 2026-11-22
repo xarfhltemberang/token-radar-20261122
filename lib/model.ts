@@ -251,7 +251,9 @@ export function computeMultiples(snapshot: Snapshot, model: ModelConstants = MOD
   const global = allRatios.length > 0 ? median(allRatios) : 0.25;
   const byCategory = new Map<string, { multiple: number; comparables: number; medianRatio: number }>();
   for (const [category, ratios] of ratiosByCategory) {
-    const catMedian = median(ratios);
+    // A category median above 2x is one live token's quirk (a tiny TVL with a large cap), not a
+    // comparable: cap the median before blending so a single outlier cannot set the multiple.
+    const catMedian = Math.min(2, median(ratios));
     const n = ratios.length;
     // Shrinkage: a category with few live comparables leans on the market median.
     const blended = (n * catMedian + model.shrink_prior * global) / (n + model.shrink_prior);
